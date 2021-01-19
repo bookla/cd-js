@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>View Your Images</title>
+
+    <link rel="stylesheet" href="common-style.css">
+    <link rel="stylesheet" href="image-viewer.css">
+</head>
+<body onload="logIn()">
+
+<script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-analytics.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-storage.js"></script>
+
+<script>
+    var firebaseConfig = {
+        //REDACTED FOR SECURITY
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
+</script>
+
+
+<div class="background" style="align-content: center">
+    <h4 id="uploading-text" style="margin: 0; color: white; text-align: right;">All Images Uploaded and Processed  </h4>
+    <a href="#" onclick="logOut()" style="float: right; padding-right: 10px; color: white">Log Out</a>
+    <p id="email-display" style="margin:0; float: right; padding-right: 10px; color: white">Logged in as </p>
+    <div class="row" id="imageRow" style="height: 90%; width: auto; align-content: center; padding-top: 40px"></div>
+</div>
+
+
+
+<script>
+    let uid = undefined
+    let email = undefined
+    let userData = undefined
+
+    let db = firebase.firestore()
+
+    let currentFiles = []
+
+    const screenHeight = window.innerHeight
+    const screenWidth = window.innerWidth
+
+    let uploading = 0
+
+    function logOut() {
+        firebase.auth().signOut().then(function() {
+            window.location = "./login.html";
+        })
+    }
+
+
+    function logIn() {
+        firebase.auth().onAuthStateChanged(function(user) {
+            if (user) {
+                uid = user.uid;
+                email = user.email;
+                userData = user;
+                document.getElementById("email-display").innerText = email
+                setInterval(getImageList, 2000)
+                getImageList()
+            } else {
+                window.location = "./login.html"
+            }
+        });
+    }
+
+
+    function getImageList() {
+        uploading = 0
+        db.collection("users").doc(uid.toString()).get().then(function(doc) {
+            if (doc.exists) {
+                let fileLocations = []
+                let files = doc.data()["images"]
+                console.log(currentFiles)
+                Object.keys(files).forEach(function(file, i) {
+                    if (files[file]["isUploaded"]) {
+                        let fileName = files[file]["imageLink"]
+                        if (!currentFiles.includes(fileName)) {
+                            fileLocations.push(fileName)
+                            currentFiles.push(fileName)
+                        }
+                    } else {
+                        uploading += 1
+                        document.getElementById("uploading-text").innerText = uploading.toString() + " Images waiting to be processed/uploaded  "
+                    }
+                })
+                if (uploading === 0) {
+                    document.getElementById("uploading-text").innerText = "All Images Uploaded and Processed  "
+                }
+                displayImages(fileLocations)
+            } else {
+                alert("Database Error. Account created without associated photos. Please try again later!")
+                window.location = "./login.html"
+            }
+        })
+    }
+
+
+    function getElement(imageLink) {
+        let container = document.createElement("tbody")
+        container.className = "column"
+
+        let image = document.createElement("img")
+        image.alt = "Image"
+        image.src = imageLink
+        //image.className = "column"
+        console.log(screenWidth)
+        console.log(screenHeight)
+        if (screenWidth >= screenHeight) {
+            image.style.width = (20 - 100*(25/screenWidth)).toString() + "%"
+        } else {
+            image.style.width = (33 - 100*(25/screenHeight)).toString() + "%"
+        }
+        image.style.marginLeft = "5px"
+        image.style.marginRight = "5px"
+        image.style.cursor = "pointer"
+        image.style.backgroundColor = "#828282"
+        image.addEventListener("click", function() { selectImage(image); } )
+
+        container.appendChild(image)
+
+        return image
+    }
+
+
+    function selectImage(imageElement) {
+        window.open(imageElement.src)
+    }
+
+
+    function displayImages(imageList) {
+        let storage = firebase.storage();
+
+        imageList.forEach(function(imageLocation, i) {
+            let imageRef = storage.ref().child(uid.toString()).child(imageLocation);
+
+            imageRef.getDownloadURL().then(function(url) {
+                let smallImage = getElement(url)
+                document.getElementById("imageRow").appendChild(smallImage)
+            }).catch(function(error) {
+                console.error("UNABLE TO DOWNLOAD : " + imageLocation)
+                console.error(error)
+            });
+        })
+    }
+
+</script>
+
+
+</body>
+</html>

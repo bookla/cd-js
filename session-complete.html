@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Session Complete</title>
+
+    <link rel="stylesheet" href="common-style.css">
+</head>
+<body onload="setupUI()">
+
+<div class="background"></div>
+
+<div style="background-color: white; position: absolute; top: 50%; left: 50%; align-content: center;" class="container" id="action-box">
+    <h1 style="width: 100%; text-align: center" id="main-text">Say Cheese!</h1>
+    <p id="description-text">Look at the screen and smile! If this is your first time using this email address, information on how to access the photo will be emailed to you shortly. Thank you for using the photo booth!</p>
+</div>
+
+<script>
+    const screenHeight = window.screen.height
+    const screenWidth = window.screen.width
+    const smallestSize = (screenHeight > screenWidth) ? screenWidth : screenHeight
+    const boxHeightRelative = 0.25
+    const boxWidthRelative = 0.7
+
+    function setupUI() {
+        let actionBox = document.getElementById("action-box")
+        const boxHeight = smallestSize*boxHeightRelative
+        const boxWidth = smallestSize*boxWidthRelative
+        //actionBox.style.height = boxHeight.toString() + "px"
+        actionBox.style.width = boxWidth.toString() + "px"
+        actionBox.style.margin = "-" + (boxHeight/2).toString() + "px 0 0 -" + (boxWidth/2).toString() + "px"
+        actionBox.style.borderRadius = "5px"
+    }
+</script>
+
+</body>
+</html>

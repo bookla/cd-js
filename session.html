@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Camera Controller</title>
+
+    <link rel="stylesheet" href="common-style.css">
+</head>
+
+<body onload="setupUI(); setupSystem()">
+
+<script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-analytics.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-firestore.js"></script>
+
+<script>
+    var firebaseConfig = {
+        //REDACTED FOR SECURITY
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
+</script>
+
+
+<div class="background"></div>
+
+<div style="background-color: white; position: absolute; top: 50%; left: 50%; align-content: center;" class="container" id="action-box">
+    <h1 style="width: 100%; text-align: center" id="main-text">Please Wait</h1>
+    <p id="description-text">Please wait as the system activates your session ID</p>
+    <label>
+        <input id="email-input" onkeyup="boxEdited()" style="font-size: 16px; border-radius: 10px; box-shadow: lightgray; border-width: thin; height: 30px; width:100%" type="email" placeholder="Email Address">
+    </label>
+    <button id="photo-button" onclick="trigger()" style="width: 100%; height: 40px; margin-top: 20px; border-radius: 10px; border-width: 0; box-shadow: lightgray; padding-right: 10px" class="deactivatedButton">TAKE PHOTO</button>
+</div>
+
+
+<script>
+    const screenHeight = window.screen.height
+    const screenWidth = window.screen.width
+    const smallestSize = (screenHeight > screenWidth) ? screenWidth : screenHeight
+    const boxWidthRelative = 0.7
+
+    function setupUI() {
+        let actionBox = document.getElementById("action-box")
+        const boxWidth = smallestSize*boxWidthRelative
+        actionBox.style.height = "auto"
+        const boxHeight = actionBox.clientHeight
+        actionBox.style.width = boxWidth.toString() + "px"
+        actionBox.style.margin = "-" + (boxHeight/2).toString() + "px 0 0 -" + (boxWidth/2).toString() + "px"
+        actionBox.style.borderRadius = "5px"
+    }
+</script>
+
+
+<script>
+    let db = firebase.firestore()
+    let sessionActive = false
+
+    function setupSystem() {
+        let sessionID = getJsonFromUrl()["sessionID"]
+        if (sessionID === undefined) {
+            document.getElementById("main-text").innerText = "Invalid Session ID"
+            document.getElementById("description-text").innerText = "The QR Code scanned might be invalid or may have expired."
+            document.getElementById("email-input").isContentEditable = false
+            return
+        }
+
+        //Check session ID
+        sessionCheck(false)
+    }
+
+    function sessionCheck(action) {
+        let sessionID = getJsonFromUrl()["sessionID"]
+        db.collection("sessions").doc(sessionID).get().then(function(doc) {
+            if (doc.exists) {
+
+                let boothName = doc.data()["boothName"]
+
+                document.getElementById("main-text").innerText = "Welcome to " + boothName
+
+                if (doc.data()["isActive"]) {
+                    sessionActive = true
+                    document.getElementById("description-text").innerText = "Start by entering your email address into the box below. You will need this email to retrieve your photo once it has been uploaded. Once you're ready, press TAKE PHOTO and smile!"
+
+                    //IF ACTION THEN TRIGGER PHOTO BOOTH
+                    if (action) {
+                        let email = document.getElementById("email-input").value
+                        if (email !== "" && email !== undefined) {
+                            let sessionID = getJsonFromUrl()["sessionID"]
+                            db.collection("sessions").doc(sessionID).update({
+                                trigger: true,
+                                associatedEmail: email
+                            }).then(function() {
+                                window.location.href = "./session-complete.html"
+                            }).catch(function(error) {
+                                console.log(error)
+                            })
+                        } else {
+                            alert("Please enter a valid email address")
+                        }
+                    }
+                } else {
+                    document.getElementById("description-text").innerText = "The session ID is valid, but has expired. Please rescan the code to start a new session"
+                    document.getElementById("email-input").isContentEditable = false
+                }
+            } else {
+                document.getElementById("main-text").innerText = "Session Not Found"
+                document.getElementById("description-text").innerText = "Session specified does not exist."
+                document.getElementById("email-input").isContentEditable = false
+            }
+            if (action && !sessionActive) {
+                alert("Invalid Session. Cannot connect to Photo Booth")
+            }
+            setupUI()
+        }).catch(function(error) {
+            alert("Unknown Error Occurred, please try again later")
+            console.log(error)
+        });
+    }
+
+
+    function boxEdited() {
+        let email = document.getElementById("email-input").value
+        if (email !== "" && email !== undefined && sessionActive) {
+            document.getElementById("photo-button").className = "activatedButton"
+        } else {
+            document.getElementById("photo-button").className = "deactivatedButton"
+        }
+    }
+
+    async function trigger() {
+        sessionCheck(true)
+    }
+
+    function getJsonFromUrl(url) {
+        if(!url) url = location.search;
+        let query = url.substr(1);
+        let result = {};
+        query.split("&").forEach(function(part) {
+            let item = part.split("=");
+            result[item[0]] = decodeURIComponent(item[1]);
+        });
+        return result;
+    }
+</script>
+
+
+
+</body>
+</html>
